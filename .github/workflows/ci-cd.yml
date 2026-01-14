@@ -32,8 +32,8 @@ jobs:
         node-version: '18'
         cache: 'npm'
         cache-dependency-path: |
-          airbnb-clone/api/package-lock.json
-          airbnb-clone/client/package-lock.json
+          airbnb-clone/api/package.json
+          airbnb-clone/client/package.json
     
     - name: Install API dependencies
       working-directory: airbnb-clone/api
