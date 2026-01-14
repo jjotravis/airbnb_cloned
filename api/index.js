@@ -18,18 +18,28 @@ cloudinary.config({
 
 const app = express();
 
+// Behind a LoadBalancer/ingress we need this so secure cookies work when TLS is terminated upstream
+app.set("trust proxy", 1);
+
 // For handling cookies
 app.use(cookieParser());
 
 // Initialize cookie-session middleware
+const cookieSecure = process.env.COOKIE_SECURE !== "false"; // default secure=true unless explicitly disabled
+const cookieSameSite = process.env.COOKIE_SAMESITE || (cookieSecure ? "none" : "lax");
+const allowedOrigins = (process.env.ALLOWED_ORIGINS || process.env.CLIENT_URL || "")
+  .split(",")
+  .map((o) => o.trim())
+  .filter(Boolean);
+
 app.use(
   cookieSession({
     name: "session",
-    maxAge: process.env.COOKIE_TIME * 24 * 60 * 60 * 1000,
+    maxAge: Number(process.env.COOKIE_TIME || 7) * 24 * 60 * 60 * 1000,
     keys: [process.env.SESSION_SECRET],
-    secure: true, // Only send over HTTPS
-    sameSite: "none", // Allow cross-origin requests
-    httpOnly: true, // Makes the cookie accessible only on the server-side
+    secure: cookieSecure,
+    sameSite: cookieSameSite,
+    httpOnly: true,
   })
 );
 
@@ -39,7 +49,17 @@ app.use(express.json());
 // CORS
 app.use(
   cors({
-    origin: process.env.CLIENT_URL,
+    origin: (origin, callback) => {
+      // Debug logging
+      console.log('CORS check - Origin:', origin, 'Allowed:', allowedOrigins);
+      // Allow requests with no origin (same-origin via proxy, mobile apps, curl)
+      // or if origin is in the allowlist
+      if (!origin || allowedOrigins.includes(origin)) {
+        console.log('CORS check - ALLOWED');
+        return callback(null, true);
+      }
+      return callback(new Error(`CORS: Origin '${origin}' not allowed. Allowed: ${allowedOrigins.join(', ')}`));
+    },
     credentials: true,
   })
 );
