@@ -1,0 +1,64 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: airbnb-client
+  namespace: airbnb-clone
+  labels:
+    app: airbnb-client
+    tier: frontend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: airbnb-client
+      tier: frontend
+  template:
+    metadata:
+      labels:
+        app: airbnb-client
+        tier: frontend
+    spec:
+      containers:
+      - name: client
+        image: airbnbcloneacr.azurecr.io/airbnb-client:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 80
+          name: http
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "100m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 80
+          initialDelaySeconds: 60
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 80
+          initialDelaySeconds: 20
+          periodSeconds: 5
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: airbnb-client-service
+  namespace: airbnb-clone
+  labels:
+    app: airbnb-client
+spec:
+  type: LoadBalancer
+  ports:
+  - port: 80
+    targetPort: 80
+    protocol: TCP
+    name: http
+  selector:
+    app: airbnb-client
+    tier: frontend
